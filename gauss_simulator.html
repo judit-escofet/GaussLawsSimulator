@@ -1,0 +1,1543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gauss Law — Field Simulator</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Syne:wght@400;600;800&display=swap');
+
+:root {
+  --bg: #04080f;
+  --grid: #0a1628;
+  --panel: #070d1a;
+  --card: #0c1726;
+  --border: #162540;
+  --border2: #1e3554;
+  --cyan: #00e5ff;
+  --cyan2: #00b8d4;
+  --gold: #ffc107;
+  --pos: #ff3d57;
+  --neg: #00e676;
+  --cond: #b388ff;
+  --ins: #ff9800;
+  --text: #cfe8ff;
+  --muted: #4a7090;
+  --muted2: #2a4a65;
+  --glow: 0 0 20px rgba(0,229,255,0.15);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { width:100%; height:100%; overflow:hidden; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Syne', sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ══════════════ HEADER ══════════════ */
+header {
+  height: 52px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 24px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+}
+.logo {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--cyan);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.logo-dot { width:8px; height:8px; background:var(--cyan); border-radius:50%; box-shadow:0 0 10px var(--cyan); animation: pulse 2s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.7)} }
+
+.header-sep { width:1px; height:24px; background:var(--border2); }
+
+.stat-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--card);
+  border: 1px solid var(--border2);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.65rem;
+}
+.stat-pill .label { color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+.stat-pill .value { color: var(--cyan); font-weight: 600; }
+.stat-pill.flux .value { color: var(--gold); }
+.stat-pill.pos .value { color: var(--pos); }
+
+.header-right { margin-left: auto; display:flex; gap:8px; align-items:center; }
+.help-btn {
+  background: transparent;
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 4px 10px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  cursor: pointer;
+  font-family: 'Syne', sans-serif;
+  transition: all 0.2s;
+}
+.help-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+
+/* ══════════════ LAYOUT ══════════════ */
+.workspace {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ══════════════ LEFT TOOLBAR ══════════════ */
+.toolbar {
+  width: 72px;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0;
+  gap: 4px;
+  flex-shrink: 0;
+  z-index: 5;
+}
+.tool-group { width:100%; padding: 4px 8px; display:flex; flex-direction:column; gap:2px; }
+.tool-divider { width:40px; height:1px; background:var(--border); margin: 6px auto; }
+.tool-btn {
+  width: 100%;
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.18s;
+  color: var(--muted);
+  padding: 4px;
+}
+.tool-btn:hover { background: var(--card); border-color: var(--border2); color: var(--text); }
+.tool-btn.active { background: rgba(0,229,255,0.08); border-color: var(--cyan2); color: var(--cyan); }
+.tool-btn.active-pos { background: rgba(255,61,87,0.1); border-color: var(--pos); color: var(--pos); }
+.tool-btn.active-neg { background: rgba(0,230,118,0.1); border-color: var(--neg); color: var(--neg); }
+.tool-btn.active-cond { background: rgba(179,136,255,0.1); border-color: var(--cond); color: var(--cond); }
+.tool-btn.active-ins { background: rgba(255,152,0,0.1); border-color: var(--ins); color: var(--ins); }
+.tool-icon { font-size: 1.3rem; line-height: 1; }
+.tool-label { font-size: 0.5rem; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; text-align:center; line-height:1.2; }
+.tool-btn.danger:hover { background: rgba(255,61,87,0.08); border-color:var(--pos); color:var(--pos); }
+
+/* ══════════════ CANVAS ══════════════ */
+.canvas-wrap {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+#sim { display:block; cursor: crosshair; }
+
+/* ══════════════ RIGHT PANEL ══════════════ */
+.right-panel {
+  width: 260px;
+  background: var(--panel);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.panel-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.ptab {
+  flex: 1;
+  padding: 10px 4px;
+  text-align: center;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  font-family: 'Syne', sans-serif;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+.ptab.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+
+.panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.panel-section { display:none; flex-direction:column; gap:10px; }
+.panel-section.active { display:flex; }
+
+/* ══════════════ UI COMPONENTS ══════════════ */
+.sec-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.55rem;
+  color: var(--cyan);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sec-label::after { content:''; flex:1; height:1px; background:var(--border2); }
+
+.info-card {
+  background: var(--card);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.info-card .row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 2px 0;
+  font-size: 0.72rem;
+  border-bottom: 1px solid var(--border);
+}
+.info-card .row:last-child { border:none; }
+.info-card .row .k { color: var(--muted); }
+.info-card .row .v { color: var(--cyan); font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem; }
+.info-card .row .v.pos { color: var(--pos); }
+.info-card .row .v.neg { color: var(--neg); }
+.info-card .row .v.gold { color: var(--gold); }
+
+.formula {
+  background: #030810;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.68rem;
+  line-height: 1.9;
+  color: var(--muted);
+}
+.formula .hl { color: var(--cyan); }
+.formula .val { color: #a8ff78; }
+.formula .warn { color: var(--gold); }
+
+.slider-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.slider-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+.slider-row span:last-child { color: var(--text); font-family: 'IBM Plex Mono', monospace; }
+input[type=range] { width:100%; accent-color: var(--cyan); cursor:pointer; }
+
+.toggle-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.72rem;
+  padding: 2px 0;
+}
+.tog { position:relative; width:30px; height:16px; }
+.tog input { display:none; }
+.tog-s { position:absolute; inset:0; background:var(--border2); border-radius:20px; cursor:pointer; transition:0.2s; }
+.tog-s::before { content:''; position:absolute; width:10px; height:10px; left:3px; top:3px; background:var(--muted); border-radius:50%; transition:0.2s; }
+.tog input:checked + .tog-s { background:var(--cyan2); }
+.tog input:checked + .tog-s::before { transform:translateX(14px); background:white; }
+
+.obj-list { display:flex; flex-direction:column; gap:5px; }
+.obj-item {
+  background: var(--card);
+  border: 1px solid var(--border2);
+  border-radius: 7px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.18s;
+  font-size: 0.72rem;
+}
+.obj-item:hover { border-color: var(--cyan2); }
+.obj-item.selected { border-color: var(--cyan); background: rgba(0,229,255,0.05); }
+.obj-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.obj-info { flex:1; }
+.obj-name { font-weight:600; color:var(--text); margin-bottom:1px; }
+.obj-sub { font-size:0.6rem; color:var(--muted); font-family:'IBM Plex Mono',monospace; }
+.obj-del {
+  background:transparent; border:none; color:var(--muted2); cursor:pointer; font-size:1rem; padding:2px 4px;
+  border-radius:4px; transition:all 0.15s;
+}
+.obj-del:hover { color:var(--pos); background:rgba(255,61,87,0.1); }
+
+.sel-props { display:flex; flex-direction:column; gap:8px; }
+
+.btn { display:flex; align-items:center; gap:6px; background:transparent; border:1px solid var(--border2); border-radius:6px; padding:7px 10px; color:var(--muted); font-family:'Syne',sans-serif; font-size:0.72rem; font-weight:600; cursor:pointer; transition:all 0.18s; justify-content:center; width:100%; }
+.btn:hover { border-color:var(--cyan2); color:var(--text); }
+.btn.primary { border-color:var(--cyan2); color:var(--cyan); }
+.btn.primary:hover { background:rgba(0,229,255,0.08); }
+.btn.red { border-color:var(--pos); color:var(--pos); }
+.btn.red:hover { background:rgba(255,61,87,0.08); }
+
+/* ══════════════ CANVAS OVERLAYS ══════════════ */
+.overlay-hint {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(4,8,15,0.88);
+  border: 1px solid var(--border2);
+  border-radius: 20px;
+  padding: 6px 18px;
+  font-size: 0.68rem;
+  color: var(--muted);
+  backdrop-filter: blur(12px);
+  pointer-events: none;
+  transition: opacity 0.8s;
+  white-space: nowrap;
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.cursor-label {
+  position: absolute;
+  pointer-events: none;
+  background: rgba(0,229,255,0.1);
+  border: 1px solid var(--cyan);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 0.62rem;
+  color: var(--cyan);
+  font-family: 'IBM Plex Mono', monospace;
+  transform: translate(12px, -50%);
+  display: none;
+}
+
+/* ══════════════ SCROLLBAR ══════════════ */
+::-webkit-scrollbar { width:3px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--border2); border-radius:4px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><div class="logo-dot"></div>GAUSS·LAB</div>
+  <div class="header-sep"></div>
+  <div class="stat-pill"><span class="label">Objects</span><span class="value" id="h-objs">0</span></div>
+  <div class="stat-pill pos"><span class="label">Q_net</span><span class="value" id="h-qnet">0 nC</span></div>
+  <div class="stat-pill flux"><span class="label">Flux Φ</span><span class="value" id="h-flux">—</span></div>
+  <div class="header-right">
+    <div class="stat-pill" style="font-size:0.6rem;color:var(--muted)">Right-click drag = Gauss surface &nbsp;|&nbsp; Scroll = zoom &nbsp;|&nbsp; Middle-drag = pan</div>
+  </div>
+</header>
+
+<div class="workspace">
+
+  <!-- LEFT TOOLBAR -->
+  <div class="toolbar">
+    <div class="tool-group">
+      <div class="sec-label" style="font-size:0.42rem;letter-spacing:2px;margin-bottom:2px">Select</div>
+      <button class="tool-btn active" id="tool-select" onclick="setTool('select')" title="Select & Move">
+        <span class="tool-icon">⊹</span><span class="tool-label">Select</span>
+      </button>
+    </div>
+    <div class="tool-divider"></div>
+    <div class="tool-group">
+      <div class="sec-label" style="font-size:0.42rem;letter-spacing:2px;margin-bottom:2px">Charges</div>
+      <button class="tool-btn" id="tool-pos" onclick="setTool('pos')" title="Positive Point Charge">
+        <span class="tool-icon" style="color:var(--pos)">⊕</span><span class="tool-label">+Charge</span>
+      </button>
+      <button class="tool-btn" id="tool-neg" onclick="setTool('neg')" title="Negative Point Charge">
+        <span class="tool-icon" style="color:var(--neg)">⊖</span><span class="tool-label">−Charge</span>
+      </button>
+    </div>
+    <div class="tool-divider"></div>
+    <div class="tool-group">
+      <div class="sec-label" style="font-size:0.42rem;letter-spacing:2px;margin-bottom:2px">Objects</div>
+      <button class="tool-btn" id="tool-cond-sphere" onclick="setTool('cond-sphere')" title="Conducting Sphere">
+        <span class="tool-icon" style="color:var(--cond)">◯</span><span class="tool-label">Cond. Sphere</span>
+      </button>
+      <button class="tool-btn" id="tool-cond-plate" onclick="setTool('cond-plate')" title="Conducting Plate">
+        <span class="tool-icon" style="color:var(--cond)">▬</span><span class="tool-label">Cond. Plate</span>
+      </button>
+      <button class="tool-btn" id="tool-ins-sphere" onclick="setTool('ins-sphere')" title="Insulating Sphere (uniform charge)">
+        <span class="tool-icon" style="color:var(--ins)">◉</span><span class="tool-label">Ins. Sphere</span>
+      </button>
+      <button class="tool-btn" id="tool-ins-plate" onclick="setTool('ins-plate')" title="Insulating Plate (surface charge)">
+        <span class="tool-icon" style="color:var(--ins)">≡</span><span class="tool-label">Ins. Plate</span>
+      </button>
+    </div>
+    <div class="tool-divider"></div>
+    <div class="tool-group">
+      <div class="sec-label" style="font-size:0.42rem;letter-spacing:2px;margin-bottom:2px">Viz</div>
+      <button class="tool-btn" id="tool-gauss" onclick="setTool('gauss')" title="Draw Gaussian Surface">
+        <span class="tool-icon" style="color:var(--gold)">⊙</span><span class="tool-label">Gauss Surf.</span>
+      </button>
+    </div>
+    <div style="margin-top:auto">
+      <div class="tool-group">
+        <button class="tool-btn danger" onclick="clearAll()" title="Clear All">
+          <span class="tool-icon">✕</span><span class="tool-label">Clear</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CANVAS -->
+  <div class="canvas-wrap" id="canvasWrap">
+    <canvas id="sim"></canvas>
+    <div class="overlay-hint" id="hint">Click to place • Shift+click conductor to add charge • Right-click drag to draw Gaussian surface</div>
+    <div class="cursor-label" id="cursorLabel"></div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+    <div class="panel-tabs">
+      <button class="ptab active" onclick="switchPanel('props')">Properties</button>
+      <button class="ptab" onclick="switchPanel('viz')">Visualization</button>
+      <button class="ptab" onclick="switchPanel('analysis')">Analysis</button>
+    </div>
+    <div class="panel-body" id="panelBody">
+
+      <!-- PROPS -->
+      <div class="panel-section active" id="sec-props">
+        <div class="sec-label">Selected Object</div>
+        <div id="selNone" style="font-size:0.72rem;color:var(--muted);font-style:italic;padding:4px 0">Nothing selected. Click an object to inspect.</div>
+        <div id="selProps" class="sel-props" style="display:none"></div>
+
+        <div class="sec-label">Scene Objects</div>
+        <div class="obj-list" id="objList">
+
+        </div>
+      </div>
+
+      <!-- VIZ -->
+      <div class="panel-section" id="sec-viz">
+        <div class="sec-label">Field Rendering</div>
+        <div class="info-card">
+          <div class="toggle-row"><span>Field Lines</span><label class="tog"><input type="checkbox" id="v-lines" checked onchange="requestRedraw()"><span class="tog-s"></span></label></div>
+          <div class="toggle-row"><span>Field Vectors</span><label class="tog"><input type="checkbox" id="v-vectors" onchange="requestRedraw()"><span class="tog-s"></span></label></div>
+          <div class="toggle-row"><span>Equipotentials</span><label class="tog"><input type="checkbox" id="v-equip" onchange="requestRedraw()"><span class="tog-s"></span></label></div>
+          <div class="toggle-row"><span>Heatmap</span><label class="tog"><input type="checkbox" id="v-heat" onchange="requestRedraw()"><span class="tog-s"></span></label></div>
+          <div class="toggle-row"><span>Induced Charges</span><label class="tog"><input type="checkbox" id="v-induced" checked onchange="requestRedraw()"><span class="tog-s"></span></label></div>
+          <div class="toggle-row"><span>Object Labels</span><label class="tog"><input type="checkbox" id="v-labels" checked onchange="requestRedraw()"><span class="tog-s"></span></label></div>
+        </div>
+        <div class="sec-label">Field Line Density</div>
+        <div class="info-card">
+          <div class="slider-group">
+            <div class="slider-row"><span>Lines per charge</span><span id="v-ld-val">12</span></div>
+            <input type="range" min="4" max="24" value="12" id="v-ld" oninput="document.getElementById('v-ld-val').textContent=this.value;requestRedraw()">
+          </div>
+        </div>
+        <div class="sec-label">Charge Magnitude Default</div>
+        <div class="info-card">
+          <div class="slider-group">
+            <div class="slider-row"><span>Point charge (nC)</span><span id="v-qd-val">5</span></div>
+            <input type="range" min="1" max="20" value="5" id="v-qd" oninput="document.getElementById('v-qd-val').textContent=this.value">
+          </div>
+        </div>
+      </div>
+
+      <!-- ANALYSIS -->
+      <div class="panel-section" id="sec-analysis">
+        <div class="sec-label">Gauss's Law</div>
+        <div class="formula" id="gaussFormula">
+          <span class="hl">∮ E⃗ · dA⃗ = Q_enc / ε₀</span><br>
+          ε₀ = <span class="val">8.85×10⁻¹²</span> C²/N·m²<br><br>
+          Draw a Gaussian surface<br>to compute flux.
+        </div>
+        <div class="sec-label">Gaussian Surface</div>
+        <div class="info-card" id="gaussStats">
+          <div class="row"><span class="k">Surface</span><span class="v" id="a-surf">None</span></div>
+          <div class="row"><span class="k">Q_enclosed (nC)</span><span class="v gold" id="a-qenc">—</span></div>
+          <div class="row"><span class="k">Flux Φ (N·m²/C)</span><span class="v gold" id="a-flux">—</span></div>
+          <div class="row"><span class="k">Charges inside</span><span class="v" id="a-cin">—</span></div>
+          <div class="row"><span class="k">Charges outside</span><span class="v" id="a-cout">—</span></div>
+        </div>
+        <div class="sec-label">Scene Summary</div>
+        <div class="info-card">
+          <div class="row"><span class="k">Total objects</span><span class="v" id="a-objs">0</span></div>
+          <div class="row"><span class="k">Point charges</span><span class="v" id="a-pts">0</span></div>
+          <div class="row"><span class="k">Conductors</span><span class="v" id="a-conds">0</span></div>
+          <div class="row"><span class="k">Insulators</span><span class="v" id="a-ins">0</span></div>
+          <div class="row"><span class="k">Net charge (nC)</span><span class="v gold" id="a-net">0</span></div>
+        </div>
+        <div class="sec-label">Gauss Verification</div>
+        <div class="formula" id="gaussVerif">
+          <span style="color:var(--muted)">Place objects and draw<br>a Gaussian surface.</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- workspace -->
+
+<script>
+'use strict';
+// ══════════════════════════════════════════════════
+// CONSTANTS
+// ══════════════════════════════════════════════════
+const k = 8.99e9, eps0 = 8.85e-12;
+const PX_PER_M = 100; // 100px = 1m for physics calculations
+
+// ══════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════
+let objects = []; // all scene objects
+let gaussSurface = null; // {cx,cy,rx,ry} or null
+let selectedId = null;
+let tool = 'select';
+let panelTab = 'props';
+
+// Interaction state
+let isDragging = false, dragObjId = null, dragOffX = 0, dragOffY = 0;
+let isDrawingGauss = false, gaussDrawStart = null;
+let isPanning = false, panStartX = 0, panStartY = 0;
+let viewX = 0, viewY = 0, viewScale = 1;
+let mouseX = 0, mouseY = 0;
+let placingObject = false; // for sphere/plate: first click = center, drag = size
+let placeStart = null;
+let redrawPending = false;
+
+// ══════════════════════════════════════════════════
+// CANVAS SETUP
+// ══════════════════════════════════════════════════
+const canvas = document.getElementById('sim');
+const ctx = canvas.getContext('2d');
+const wrap = document.getElementById('canvasWrap');
+
+function resize() {
+  canvas.width = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+  requestRedraw();
+}
+window.addEventListener('resize', resize);
+
+function requestRedraw() {
+  if (!redrawPending) {
+    redrawPending = true;
+    requestAnimationFrame(() => { redrawPending = false; draw(); });
+  }
+}
+
+// ══════════════════════════════════════════════════
+// OBJECT SYSTEM
+// ══════════════════════════════════════════════════
+let nextId = 1;
+
+function createPointCharge(wx, wy, q) {
+  return { id: nextId++, type: 'point', x: wx, y: wy, q, label: `Q${objects.length+1}` };
+}
+function createCondSphere(wx, wy, r, q) {
+  return { id: nextId++, type: 'cond-sphere', x: wx, y: wy, r, q, label: `CS${objects.length+1}` };
+}
+function createCondPlate(wx, wy, w, h, q) {
+  return { id: nextId++, type: 'cond-plate', x: wx, y: wy, w, h, q, label: `CP${objects.length+1}` };
+}
+function createInsSphere(wx, wy, r, q) {
+  return { id: nextId++, type: 'ins-sphere', x: wx, y: wy, r, q, label: `IS${objects.length+1}` };
+}
+function createInsPlate(wx, wy, w, h, sigma) {
+  return { id: nextId++, type: 'ins-plate', x: wx, y: wy, w, h, q: sigma, label: `IP${objects.length+1}` };
+}
+
+function getDefaultQ() { return parseFloat(document.getElementById('v-qd').value); }
+
+// ══════════════════════════════════════════════════
+// PHYSICS
+// ══════════════════════════════════════════════════
+// All world coords in pixels. Physics in SI: 1px = 1/PX_PER_M meters
+
+function getEffectiveCharges() {
+  // Returns array of {x,y,q} in world pixel coords, q in Coulombs (SI)
+  const pts = [];
+  for (const obj of objects) {
+    const qC = obj.q * 1e-9; // nC -> C
+    if (obj.type === 'point') {
+      pts.push({ x: obj.x, y: obj.y, q: qC });
+    } else if (obj.type === 'ins-sphere') {
+      // Uniformly charged sphere: outside = point charge at center
+      pts.push({ x: obj.x, y: obj.y, q: qC, insR: obj.r });
+    } else if (obj.type === 'cond-sphere') {
+      // Surface charge: acts as point charge outside, 0 inside
+      pts.push({ x: obj.x, y: obj.y, q: qC, condR: obj.r });
+    } else if (obj.type === 'ins-plate' || obj.type === 'cond-plate') {
+      // Approximate as N point charges along plate
+      const N = 12;
+      for (let i = 0; i < N; i++) {
+        const t = (i + 0.5) / N;
+        const px = obj.x - obj.w / 2 + t * obj.w;
+        const py = obj.y;
+        pts.push({ x: px, y: py, q: qC / N });
+      }
+    }
+  }
+  // Add induced charges from conductors (simplified: dipole approximation)
+  for (const obj of objects) {
+    if (obj.type !== 'cond-sphere') continue;
+    // Compute net external field at center to estimate induction
+    let ex = 0, ey = 0;
+    for (const obj2 of objects) {
+      if (obj2 === obj) continue;
+      const qC2 = obj2.q * 1e-9;
+      const dx = obj.x - obj2.x, dy = obj.y - obj2.y;
+      const r2 = dx*dx + dy*dy;
+      if (r2 < 1) continue;
+      const r = Math.sqrt(r2) / PX_PER_M; // in meters
+      const mag = k * Math.abs(qC2) / (r * r);
+      const sgn = qC2 >= 0 ? 1 : -1;
+      ex += sgn * mag * (dx / Math.sqrt(r2));
+      ey += sgn * mag * (dy / Math.sqrt(r2));
+    }
+    // Induced dipole moment p = 4πε₀R³ E (SI)
+    const R_m = obj.r / PX_PER_M;
+    const p_mag = 4 * Math.PI * eps0 * R_m ** 3 * Math.sqrt(ex * ex + ey * ey);
+    const Emag = Math.sqrt(ex * ex + ey * ey);
+    if (Emag > 0 && document.getElementById('v-induced').checked) {
+      const px_norm = ex / Emag, py_norm = ey / Emag;
+      const disp = obj.r * 0.25;
+      pts.push({ x: obj.x + px_norm * disp, y: obj.y + py_norm * disp, q: -p_mag * 5e9 * 1e-9, induced: true });
+      pts.push({ x: obj.x - px_norm * disp, y: obj.y - py_norm * disp, q:  p_mag * 5e9 * 1e-9, induced: true });
+    }
+  }
+  return pts;
+}
+
+function eField(wx, wy) {
+  let ex = 0, ey = 0;
+  const pts = getEffectiveCharges();
+  for (const p of pts) {
+    const dx = (wx - p.x) / PX_PER_M;
+    const dy = (wy - p.y) / PX_PER_M;
+    const r2 = dx*dx + dy*dy;
+    if (r2 < 1e-6) continue;
+    // Inside conducting sphere: E=0
+    if (p.condR !== undefined) {
+      const distPx = Math.sqrt((wx-p.x)**2+(wy-p.y)**2);
+      if (distPx < p.condR) continue;
+    }
+    // Inside insulating sphere: partial E
+    if (p.insR !== undefined) {
+      const distPx = Math.sqrt((wx-p.x)**2+(wy-p.y)**2);
+      if (distPx < p.insR) {
+        // E inside = kQr/R³ (uniform volume charge)
+        const rFrac = distPx / p.insR;
+        const r = Math.sqrt(r2);
+        const mag = k * p.q * rFrac / (r * (p.insR / PX_PER_M) ** 2);
+        ex += mag * dx / r;
+        ey += mag * dy / r;
+        continue;
+      }
+    }
+    const r = Math.sqrt(r2);
+    const mag = k * p.q / r2;
+    ex += mag * dx / r;
+    ey += mag * dy / r;
+  }
+  return { x: ex, y: ey };
+}
+
+function potential(wx, wy) {
+  let v = 0;
+  const pts = getEffectiveCharges();
+  for (const p of pts) {
+    const dx = (wx - p.x) / PX_PER_M;
+    const dy = (wy - p.y) / PX_PER_M;
+    const r = Math.sqrt(dx*dx + dy*dy);
+    if (r < 1e-4) continue;
+    v += k * p.q / r;
+  }
+  return v;
+}
+
+function totalCharge() { return objects.reduce((s, o) => s + (o.q || 0), 0); }
+
+// ══════════════════════════════════════════════════
+// COORDINATE TRANSFORMS
+// ══════════════════════════════════════════════════
+function worldToScreen(wx, wy) {
+  return {
+    sx: (wx - viewX) * viewScale + canvas.width / 2,
+    sy: (wy - viewY) * viewScale + canvas.height / 2
+  };
+}
+function screenToWorld(sx, sy) {
+  return {
+    wx: (sx - canvas.width / 2) / viewScale + viewX,
+    wy: (sy - canvas.height / 2) / viewScale + viewY
+  };
+}
+function wsX(wx) { return (wx - viewX) * viewScale + canvas.width / 2; }
+function wsY(wy) { return (wy - viewY) * viewScale + canvas.height / 2; }
+function pxS(px) { return px * viewScale; } // scale world pixels to screen pixels
+
+// ══════════════════════════════════════════════════
+// DRAWING
+// ══════════════════════════════════════════════════
+const COLORS = {
+  point_pos: '#ff3d57', point_neg: '#00e676',
+  cond: '#b388ff', ins: '#ff9800', gauss: '#ffc107'
+};
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#04080f';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  drawGridLines();
+  if (document.getElementById('v-heat').checked) drawHeatmap();
+  if (document.getElementById('v-equip').checked) drawEquipotentials();
+  if (document.getElementById('v-lines').checked) drawFieldLines();
+  if (document.getElementById('v-vectors').checked) drawVectors();
+  drawObjects();
+  drawGaussSurface();
+  drawPlacingPreview();
+  updateAnalysis();
+}
+
+function drawGridLines() {
+  ctx.save();
+  const gridSize = 60 * viewScale;
+  const ox = ((-viewX * viewScale) % gridSize + canvas.width / 2 % gridSize + gridSize) % gridSize;
+  const oy = ((-viewY * viewScale) % gridSize + canvas.height / 2 % gridSize + gridSize) % gridSize;
+  ctx.strokeStyle = 'rgba(10,22,40,0.9)';
+  ctx.lineWidth = 1;
+  for (let x = ox - gridSize; x < canvas.width + gridSize; x += gridSize) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+  }
+  for (let y = oy - gridSize; y < canvas.height + gridSize; y += gridSize) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawHeatmap() {
+  if (objects.length === 0) return;
+  const step = 8;
+  const img = ctx.createImageData(canvas.width, canvas.height);
+  const d = img.data;
+  const cols = Math.ceil(canvas.width / step), rows = Math.ceil(canvas.height / step);
+  const vals = new Float32Array(cols * rows);
+  let maxV = 0;
+  let idx = 0;
+  for (let sy = 0; sy < canvas.height; sy += step) {
+    for (let sx = 0; sx < canvas.width; sx += step, idx++) {
+      const { wx, wy } = screenToWorld(sx, sy);
+      const e = eField(wx, wy);
+      const m = Math.hypot(e.x, e.y);
+      vals[idx] = m;
+      if (m > maxV) maxV = m;
+    }
+  }
+  if (maxV === 0) return;
+  idx = 0;
+  for (let sy = 0; sy < canvas.height; sy += step) {
+    for (let sx = 0; sx < canvas.width; sx += step, idx++) {
+      const t = Math.min(Math.log1p(vals[idx] / maxV * 20) / Math.log1p(20), 1);
+      const r = t < 0.5 ? Math.round(t * 2 * 30) : Math.round(30 + (t - 0.5) * 2 * 225);
+      const g = Math.round(t < 0.5 ? t * 2 * 60 : (1 - (t - 0.5) * 2) * 60);
+      const b = Math.round(t < 0.5 ? (1 - t * 2) * 200 : 0);
+      const a = Math.round(t * 160);
+      for (let dy = 0; dy < step && sy + dy < canvas.height; dy++) {
+        for (let dx = 0; dx < step && sx + dx < canvas.width; dx++) {
+          const i = ((sy + dy) * canvas.width + (sx + dx)) * 4;
+          d[i] = r; d[i+1] = g; d[i+2] = b; d[i+3] = a;
+        }
+      }
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+function drawEquipotentials() {
+  if (objects.length === 0) return;
+  const levels = [-5e4, -2e4, -8e3, -3e3, 3e3, 8e3, 2e4, 5e4];
+  const step = 5;
+  for (const lv of levels) {
+    ctx.beginPath();
+    ctx.strokeStyle = lv > 0 ? 'rgba(255,61,87,0.25)' : 'rgba(0,230,118,0.25)';
+    ctx.lineWidth = 0.8;
+    for (let sy = step; sy < canvas.height - step; sy += step) {
+      for (let sx = step; sx < canvas.width - step; sx += step) {
+        const w00 = screenToWorld(sx, sy), w10 = screenToWorld(sx + step, sy), w01 = screenToWorld(sx, sy + step);
+        const v00 = potential(w00.wx, w00.wy);
+        const v10 = potential(w10.wx, w10.wy);
+        const v01 = potential(w01.wx, w01.wy);
+        if ((v00 - lv) * (v10 - lv) < 0) { const t = (lv - v00) / (v10 - v00); ctx.moveTo(sx + t * step - 1, sy); ctx.lineTo(sx + t * step + 1, sy); }
+        if ((v00 - lv) * (v01 - lv) < 0) { const t = (lv - v00) / (v01 - v00); ctx.moveTo(sx, sy + t * step - 1); ctx.lineTo(sx, sy + t * step + 1); }
+      }
+    }
+    ctx.stroke();
+  }
+}
+
+function drawFieldLines() {
+  if (objects.length === 0) return;
+  const numLines = parseInt(document.getElementById('v-ld').value);
+  const pts = getEffectiveCharges().filter(p => !p.induced);
+  for (const p of pts) {
+    if (Math.abs(p.q) < 1e-12) continue;
+    const { sx: cx0, sy: cy0 } = worldToScreen(p.x, p.y);
+    for (let i = 0; i < numLines; i++) {
+      const angle = (i / numLines) * Math.PI * 2;
+      let { wx, wy } = screenToWorld(cx0 + Math.cos(angle) * 18, cy0 + Math.sin(angle) * 18);
+      ctx.beginPath();
+      ctx.moveTo(wsX(wx), wsY(wy));
+      ctx.strokeStyle = p.q > 0 ? 'rgba(255,61,87,0.55)' : 'rgba(0,230,118,0.55)';
+      ctx.lineWidth = 0.9;
+      const dir = p.q > 0 ? 1 : -1;
+      let prevWx = wx, prevWy = wy;
+      for (let s = 0; s < 400; s++) {
+        const e = eField(wx, wy);
+        const mag = Math.hypot(e.x, e.y);
+        if (mag < 1) break;
+        const stepSize = 4 / viewScale;
+        const nwx = wx + dir * (e.x / mag) * stepSize;
+        const nwy = wy + dir * (e.y / mag) * stepSize;
+        const { sx: nsx, sy: nsy } = worldToScreen(nwx, nwy);
+        if (nsx < -100 || nsx > canvas.width + 100 || nsy < -100 || nsy > canvas.height + 100) break;
+        let absorbed = false;
+        for (const p2 of pts) {
+          if (p2 === p) continue;
+          const dpx = (nwx - p2.x), dpy = (nwy - p2.y);
+          const absorb_r = p2.condR || p2.insR || 15 / viewScale;
+          if (dpx*dpx + dpy*dpy < absorb_r * absorb_r * 0.8) { absorbed = true; break; }
+        }
+        ctx.lineTo(nsx, nsy);
+        // Arrowhead
+        if (s % 60 === 30) {
+          const adx = nwx - prevWx, ady = nwy - prevWy;
+          if (Math.hypot(adx, ady) > 0) {
+            ctx.save();
+            ctx.translate(nsx, nsy);
+            ctx.rotate(Math.atan2(ady, adx));
+            ctx.fillStyle = p.q > 0 ? 'rgba(255,61,87,0.8)' : 'rgba(0,230,118,0.8)';
+            ctx.beginPath(); ctx.moveTo(6, 0); ctx.lineTo(-3, 3.5); ctx.lineTo(-3, -3.5); ctx.closePath(); ctx.fill();
+            ctx.restore();
+          }
+        }
+        prevWx = wx; prevWy = wy;
+        wx = nwx; wy = nwy;
+        if (absorbed) break;
+      }
+      ctx.stroke();
+    }
+  }
+}
+
+function drawVectors() {
+  if (objects.length === 0) return;
+  const step = 50;
+  for (let sy = step / 2; sy < canvas.height; sy += step) {
+    for (let sx = step / 2; sx < canvas.width; sx += step) {
+      const { wx, wy } = screenToWorld(sx, sy);
+      const e = eField(wx, wy);
+      const mag = Math.hypot(e.x, e.y);
+      if (mag < 100) continue;
+      const logM = Math.log1p(mag / 5000);
+      const len = Math.min(logM * 10, 20);
+      const alpha = Math.min(logM / 3, 0.85);
+      const nx = e.x / mag, ny = e.y / mag;
+      ctx.strokeStyle = ctx.fillStyle = `rgba(0,229,255,${alpha})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx + nx * len, sy + ny * len); ctx.stroke();
+      ctx.save(); ctx.translate(sx + nx * len, sy + ny * len); ctx.rotate(Math.atan2(ny, nx));
+      ctx.beginPath(); ctx.moveTo(4, 0); ctx.lineTo(-3, 2); ctx.lineTo(-3, -2); ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+  }
+}
+
+function drawObjects() {
+  for (const obj of objects) {
+    const sel = obj.id === selectedId;
+    drawObject(obj, sel);
+  }
+}
+
+function drawObject(obj, selected) {
+  ctx.save();
+  const { sx, sy } = worldToScreen(obj.x, obj.y);
+  const isPos = (obj.q || 0) >= 0;
+
+  if (obj.type === 'point') {
+    const r = 10 + Math.abs(obj.q || 5) * 0.7;
+    const col = isPos ? '#ff3d57' : '#00e676';
+    // Glow
+    const grd = ctx.createRadialGradient(sx, sy, 0, sx, sy, r * 2.5);
+    grd.addColorStop(0, col + '55'); grd.addColorStop(1, 'transparent');
+    ctx.beginPath(); ctx.arc(sx, sy, r * 2.5, 0, Math.PI * 2); ctx.fillStyle = grd; ctx.fill();
+    // Core
+    ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2);
+    ctx.fillStyle = col; ctx.fill();
+    if (selected) { ctx.strokeStyle = 'white'; ctx.lineWidth = 2.5; ctx.stroke(); }
+    // Symbol
+    ctx.fillStyle = 'white'; ctx.font = `bold ${r + 4}px Syne`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(isPos ? '+' : '−', sx, sy + 0.5);
+    // Label
+    if (document.getElementById('v-labels').checked) {
+      ctx.fillStyle = col; ctx.font = '600 10px IBM Plex Mono';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(`${obj.label} ${obj.q > 0 ? '+' : ''}${obj.q}nC`, sx, sy - r - 4);
+    }
+
+  } else if (obj.type === 'cond-sphere') {
+    const sr = pxS(obj.r);
+    // Body
+    const grd = ctx.createRadialGradient(sx - sr * 0.3, sy - sr * 0.3, sr * 0.1, sx, sy, sr);
+    grd.addColorStop(0, '#c4a8ff44'); grd.addColorStop(0.6, '#8c6ee033'); grd.addColorStop(1, '#4a2da011');
+    ctx.beginPath(); ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+    ctx.fillStyle = grd; ctx.fill();
+    // Metallic border
+    const border = ctx.createLinearGradient(sx - sr, sy - sr, sx + sr, sy + sr);
+    border.addColorStop(0, '#d4bbff'); border.addColorStop(0.5, '#7c5cbf'); border.addColorStop(1, '#b39ddb');
+    ctx.strokeStyle = border; ctx.lineWidth = selected ? 3 : 1.5; ctx.stroke();
+    // Selection halo
+    if (selected) { ctx.strokeStyle = 'rgba(179,136,255,0.5)'; ctx.lineWidth = 6; ctx.stroke(); }
+    // E=0 label inside
+    ctx.fillStyle = 'rgba(179,136,255,0.5)'; ctx.font = '600 10px IBM Plex Mono';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('E=0', sx, sy);
+    // Surface charge indicators
+    drawInducedChargeIndicators(obj, sx, sy, sr, isPos);
+    // Label
+    if (document.getElementById('v-labels').checked) {
+      ctx.fillStyle = '#b388ff'; ctx.font = '600 10px IBM Plex Mono'; ctx.textBaseline = 'bottom'; ctx.textAlign = 'center';
+      ctx.fillText(`${obj.label} ${obj.q >= 0 ? '+' : ''}${obj.q}nC`, sx, sy - sr - 5);
+    }
+
+  } else if (obj.type === 'ins-sphere') {
+    const sr = pxS(obj.r);
+    const col = isPos ? '#ff9800' : '#ef6c00';
+    // Body with texture
+    const grd = ctx.createRadialGradient(sx - sr * 0.2, sy - sr * 0.2, sr * 0.05, sx, sy, sr);
+    grd.addColorStop(0, isPos ? '#ffcc0240' : '#ef6c0040'); grd.addColorStop(1, isPos ? '#ff980015' : '#e6500015');
+    ctx.beginPath(); ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+    ctx.fillStyle = grd; ctx.fill();
+    // Dashed border (insulator)
+    ctx.setLineDash([6, 4]);
+    ctx.strokeStyle = col; ctx.lineWidth = selected ? 2.5 : 1.5; ctx.stroke();
+    ctx.setLineDash([]);
+    if (selected) { ctx.strokeStyle = 'rgba(255,152,0,0.4)'; ctx.lineWidth = 6; ctx.stroke(); }
+    // Distributed charge dots
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2, pr = sr * 0.55;
+      const px = sx + Math.cos(a) * pr, py = sy + Math.sin(a) * pr;
+      ctx.beginPath(); ctx.arc(px, py, 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = isPos ? '#ff9800cc' : '#ef6c00cc'; ctx.fill();
+    }
+    ctx.fillStyle = col + 'aa'; ctx.font = '600 9px IBM Plex Mono';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('ρ≠0', sx, sy);
+    if (document.getElementById('v-labels').checked) {
+      ctx.fillStyle = col; ctx.font = '600 10px IBM Plex Mono'; ctx.textBaseline = 'bottom';
+      ctx.fillText(`${obj.label} ${obj.q >= 0 ? '+' : ''}${obj.q}nC`, sx, sy - sr - 5);
+    }
+
+  } else if (obj.type === 'cond-plate') {
+    const sw = pxS(obj.w), sh = pxS(obj.h);
+    ctx.save(); ctx.translate(sx, sy);
+    // Body
+    const grd = ctx.createLinearGradient(-sw / 2, -sh / 2, sw / 2, sh / 2);
+    grd.addColorStop(0, '#d4bbff33'); grd.addColorStop(0.5, '#7c5cbf22'); grd.addColorStop(1, '#d4bbff33');
+    ctx.fillStyle = grd; ctx.fillRect(-sw / 2, -sh / 2, sw, sh);
+    // Border
+    ctx.strokeStyle = selected ? '#b388ff' : '#7c5cbf'; ctx.lineWidth = selected ? 2.5 : 1.5;
+    ctx.strokeRect(-sw / 2, -sh / 2, sw, sh);
+    if (selected) { ctx.strokeStyle = 'rgba(179,136,255,0.35)'; ctx.lineWidth = 7; ctx.strokeRect(-sw/2,-sh/2,sw,sh); }
+    // Surface charge dots
+    const dotN = Math.max(3, Math.floor(sw / 20));
+    for (let i = 0; i < dotN; i++) {
+      const t = (i + 0.5) / dotN, px = -sw / 2 + t * sw;
+      ctx.beginPath(); ctx.arc(px, -sh / 2, 2.5, 0, Math.PI * 2); ctx.fillStyle = isPos ? '#ff3d5799' : '#00e67699'; ctx.fill();
+      ctx.beginPath(); ctx.arc(px, sh / 2, 2.5, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.fillStyle = 'rgba(179,136,255,0.5)'; ctx.font = '600 9px IBM Plex Mono'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('COND', 0, 0);
+    if (document.getElementById('v-labels').checked) {
+      ctx.fillStyle = '#b388ff'; ctx.font = '600 10px IBM Plex Mono'; ctx.textBaseline = 'bottom'; ctx.textAlign = 'center';
+      ctx.fillText(`${obj.label} ${obj.q >= 0 ? '+' : ''}${obj.q}nC`, 0, -sh / 2 - 5);
+    }
+    ctx.restore();
+
+  } else if (obj.type === 'ins-plate') {
+    const sw = pxS(obj.w), sh = pxS(obj.h);
+    ctx.save(); ctx.translate(sx, sy);
+    const col = obj.q >= 0 ? '#ff9800' : '#ef6c00';
+    const grd = ctx.createLinearGradient(-sw/2, 0, sw/2, 0);
+    grd.addColorStop(0, col+'20'); grd.addColorStop(0.5, col+'35'); grd.addColorStop(1, col+'20');
+    ctx.fillStyle = grd; ctx.fillRect(-sw/2, -sh/2, sw, sh);
+    ctx.setLineDash([7, 4]);
+    ctx.strokeStyle = selected ? col : col + '99'; ctx.lineWidth = selected ? 2 : 1.3;
+    ctx.strokeRect(-sw/2, -sh/2, sw, sh); ctx.setLineDash([]);
+    if (selected) { ctx.strokeStyle = col + '40'; ctx.lineWidth = 7; ctx.strokeRect(-sw/2,-sh/2,sw,sh); }
+    // distributed charge dots
+    const dotN2 = Math.max(3, Math.floor(sw / 18));
+    const rowN = Math.max(2, Math.floor(sh / 20));
+    for (let r2 = 0; r2 < rowN; r2++) {
+      for (let ci = 0; ci < dotN2; ci++) {
+        const t = (ci + 0.5) / dotN2, px = -sw/2 + t * sw;
+        const py = -sh/2 + (r2 + 0.5) / rowN * sh;
+        ctx.beginPath(); ctx.arc(px, py, 1.8, 0, Math.PI * 2); ctx.fillStyle = col + 'bb'; ctx.fill();
+      }
+    }
+    ctx.fillStyle = col + '88'; ctx.font = '600 9px IBM Plex Mono'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('INS', 0, 0); ctx.setLineDash([]);
+    if (document.getElementById('v-labels').checked) {
+      ctx.fillStyle = col; ctx.font = '600 10px IBM Plex Mono'; ctx.textBaseline = 'bottom'; ctx.textAlign = 'center';
+      ctx.fillText(`${obj.label} ${obj.q >= 0 ? '+' : ''}${obj.q}nC/m²`, 0, -sh/2-5);
+    }
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+function drawInducedChargeIndicators(obj, sx, sy, sr, isPos) {
+  if (!document.getElementById('v-induced').checked) return;
+  // Find dominant external field direction
+  let ex = 0, ey = 0;
+  for (const o of objects) {
+    if (o === obj) continue;
+    const qC = (o.q || 0) * 1e-9;
+    const dx = (obj.x - o.x) / PX_PER_M, dy = (obj.y - o.y) / PX_PER_M;
+    const r2 = dx*dx + dy*dy;
+    if (r2 < 1e-6) continue;
+    const r = Math.sqrt(r2);
+    const mag = k * Math.abs(qC) / r2;
+    const sgn = qC >= 0 ? 1 : -1;
+    ex += sgn * mag * dx / r; ey += sgn * mag * dy / r;
+  }
+  const Emag = Math.hypot(ex, ey);
+  if (Emag < 1) return;
+  const exn = ex / Emag, eyn = ey / Emag;
+  // Draw + side (where field points away) and - side (where field points toward)
+  const numDots = 8;
+  for (let i = 0; i < numDots; i++) {
+    const ang = (i / numDots) * Math.PI * 2;
+    const dot = Math.cos(ang) * exn + Math.sin(ang) * eyn; // projection onto field dir
+    const px = sx + Math.cos(ang) * (sr - 2), py = sy + Math.sin(ang) * (sr - 2);
+    if (dot > 0.3) { // positive induced
+      ctx.beginPath(); ctx.arc(px, py, 3, 0, Math.PI * 2);
+      ctx.fillStyle = isPos ? '#ff3d57cc' : '#ff3d5788'; ctx.fill();
+    } else if (dot < -0.3) { // negative induced
+      ctx.beginPath(); ctx.arc(px, py, 3, 0, Math.PI * 2);
+      ctx.fillStyle = isPos ? '#00e67688' : '#00e676cc'; ctx.fill();
+    }
+  }
+}
+
+function drawGaussSurface() {
+  if (!gaussSurface) return;
+  const { cx, cy, rx, ry } = gaussSurface;
+  const scx = wsX(cx), scy = wsY(cy);
+  const srx = pxS(rx), sry = pxS(ry);
+
+  ctx.save();
+  // Fill
+  ctx.beginPath(); ctx.ellipse(scx, scy, srx, sry, 0, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255,193,7,0.04)'; ctx.fill();
+  // Dashed outline
+  ctx.setLineDash([10, 5]); ctx.strokeStyle = 'rgba(255,193,7,0.9)'; ctx.lineWidth = 2;
+  ctx.stroke(); ctx.setLineDash([]);
+
+  // Flux arrows on perimeter
+  const qEnc = getEnclosedByGauss();
+  for (let i = 0; i < 28; i++) {
+    const angle = (i / 28) * Math.PI * 2;
+    const px = cx + rx * Math.cos(angle), py = cy + ry * Math.sin(angle);
+    const e = eField(px, py);
+    const nx = Math.cos(angle), ny = Math.sin(angle);
+    const flux = e.x * nx + e.y * ny;
+    const aLen = Math.min(Math.log1p(Math.abs(flux) / 3000) * 7, 18);
+    const sign = flux >= 0 ? 1 : -1;
+    const sx2 = wsX(px), sy2 = wsY(py);
+    ctx.save(); ctx.translate(sx2, sy2); ctx.rotate(angle + (sign < 0 ? Math.PI : 0));
+    ctx.strokeStyle = flux > 0 ? 'rgba(255,100,40,0.85)' : 'rgba(0,230,118,0.85)';
+    ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(aLen, 0); ctx.stroke();
+    ctx.fillStyle = ctx.strokeStyle;
+    ctx.beginPath(); ctx.moveTo(aLen+5, 0); ctx.lineTo(aLen-2, 3.5); ctx.lineTo(aLen-2, -3.5); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+  // Label
+  ctx.fillStyle = 'rgba(255,193,7,0.8)'; ctx.font = '600 10px IBM Plex Mono'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  if (qEnc !== null) ctx.fillText(`Q_enc = ${qEnc.toFixed(2)} nC`, scx, scy + sry + 8);
+  ctx.restore();
+}
+
+function drawPlacingPreview() {
+  if (!placeStart || !['cond-sphere','ins-sphere','cond-plate','ins-plate'].includes(tool)) return;
+  const { wx: wx0, wy: wy0 } = screenToWorld(placeStart.sx, placeStart.sy);
+  const { wx: wx1, wy: wy1 } = screenToWorld(mouseX, mouseY);
+  const sx0 = placeStart.sx, sy0 = placeStart.sy;
+  const dx = mouseX - sx0, dy = mouseY - sy0;
+  const r = Math.hypot(dx, dy);
+  ctx.save();
+  if (tool === 'cond-sphere' || tool === 'ins-sphere') {
+    ctx.beginPath(); ctx.arc(sx0, sy0, r, 0, Math.PI * 2);
+    ctx.strokeStyle = tool.startsWith('cond') ? 'rgba(179,136,255,0.6)' : 'rgba(255,152,0,0.6)';
+    ctx.setLineDash([6, 4]); ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]);
+  } else {
+    const w = Math.abs(dx) * 2, h = Math.max(20, Math.abs(dy));
+    ctx.beginPath(); ctx.rect(sx0 - w/2, sy0 - h/2, w, h);
+    ctx.strokeStyle = tool.startsWith('cond') ? 'rgba(179,136,255,0.6)' : 'rgba(255,152,0,0.6)';
+    ctx.setLineDash([6, 4]); ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]);
+  }
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════════
+// GAUSS SURFACE LOGIC
+// ══════════════════════════════════════════════════
+function getEnclosedByGauss() {
+  if (!gaussSurface) return null;
+  const { cx, cy, rx, ry } = gaussSurface;
+  let q = 0;
+  for (const obj of objects) {
+    const dx = (obj.x - cx) / rx, dy = (obj.y - cy) / ry;
+    if (dx*dx + dy*dy <= 1) q += (obj.q || 0);
+  }
+  return q;
+}
+
+// ══════════════════════════════════════════════════
+// ANALYSIS PANEL
+// ══════════════════════════════════════════════════
+function updateAnalysis() {
+  const pts = objects.filter(o => o.type === 'point');
+  const conds = objects.filter(o => o.type.startsWith('cond'));
+  const inss = objects.filter(o => o.type.startsWith('ins'));
+  const net = totalCharge();
+
+  document.getElementById('a-objs').textContent = objects.length;
+  document.getElementById('a-pts').textContent = pts.length;
+  document.getElementById('a-conds').textContent = conds.length;
+  document.getElementById('a-ins').textContent = inss.length;
+  document.getElementById('a-net').textContent = net.toFixed(2) + ' nC';
+
+  document.getElementById('h-objs').textContent = objects.length;
+  document.getElementById('h-qnet').textContent = (net >= 0 ? '+' : '') + net.toFixed(1) + ' nC';
+
+  if (gaussSurface) {
+    const qEnc = getEnclosedByGauss();
+    const flux = qEnc * 1e-9 / eps0;
+    const inside = objects.filter(o => { const dx=(o.x-gaussSurface.cx)/gaussSurface.rx,dy=(o.y-gaussSurface.cy)/gaussSurface.ry; return dx*dx+dy*dy<=1; });
+    document.getElementById('a-surf').textContent = 'Active ✓';
+    document.getElementById('a-qenc').textContent = qEnc.toFixed(3) + ' nC';
+    document.getElementById('a-flux').textContent = flux.toExponential(2);
+    document.getElementById('a-cin').textContent = inside.length;
+    document.getElementById('a-cout').textContent = objects.length - inside.length;
+    document.getElementById('h-flux').textContent = flux.toExponential(2);
+    const gv = document.getElementById('gaussVerif'); if(gv) gv.innerHTML =
+      `<span class="hl">∮ E⃗·dA⃗ = Q_enc/ε₀</span><br>` +
+      `Q_enc = <span class="val">${qEnc.toFixed(3)} nC</span><br>` +
+      `Φ = <span class="val">${flux.toExponential(3)}</span> N·m²/C<br>` +
+      `<span class="warn">Outside objects → zero net flux ✓</span>`;
+    const gf = document.getElementById('gaussFormula'); if(gf) gf.innerHTML =
+      `<span class="hl">∮ E⃗ · dA⃗ = Q_enc / ε₀</span><br>` +
+      `Q_enc = <span class="val">${qEnc.toFixed(2)} nC</span><br>` +
+      `Φ = <span class="val">${flux.toExponential(2)}</span> N·m²/C`;
+  } else {
+    document.getElementById('a-surf').textContent = 'None';
+    document.getElementById('a-qenc').textContent = '—';
+    document.getElementById('a-flux').textContent = '—';
+    document.getElementById('a-cin').textContent = '—';
+    document.getElementById('a-cout').textContent = '—';
+    document.getElementById('h-flux').textContent = '—';
+  }
+  updateObjList();
+}
+
+function updateObjList() {
+  const list = document.getElementById('objList');
+  if (!list) return;
+  list.innerHTML = '';
+  if (objects.length === 0) {
+    list.innerHTML = '<div style="font-size:0.68rem;color:#2a4a65;font-style:italic">No objects yet. Use the toolbar to add charges and conductors.</div>';
+    return;
+  }
+  for (const obj of objects) {
+    const item = document.createElement('div');
+    item.className = 'obj-item' + (obj.id === selectedId ? ' selected' : '');
+    const typeColors = { point: obj.q >= 0 ? '#ff3d57' : '#00e676', 'cond-sphere': '#b388ff', 'cond-plate': '#9575cd', 'ins-sphere': '#ff9800', 'ins-plate': '#ef6c00' };
+    const typeNames = { point: 'Point Charge', 'cond-sphere': 'Conductor Sphere', 'cond-plate': 'Conductor Plate', 'ins-sphere': 'Insulator Sphere', 'ins-plate': 'Insulator Plate' };
+    item.innerHTML = `
+      <div class="obj-dot" style="background:${typeColors[obj.type]||'#888'};box-shadow:0 0 6px ${typeColors[obj.type]||'#888'}55"></div>
+      <div class="obj-info">
+        <div class="obj-name">${obj.label}</div>
+        <div class="obj-sub">${typeNames[obj.type]} · ${obj.q >= 0 ? '+' : ''}${obj.q}${obj.type === 'ins-plate' ? ' nC/m²' : ' nC'}</div>
+      </div>
+      <button class="obj-del" onclick="deleteObj(${obj.id});event.stopPropagation()" title="Delete">✕</button>
+    `;
+    item.onclick = () => selectObj(obj.id);
+    list.appendChild(item);
+  }
+}
+
+function selectObj(id) {
+  selectedId = id;
+  const obj = objects.find(o => o.id === id);
+  const selNone = document.getElementById('selNone');
+  const selProps = document.getElementById('selProps');
+  if (!selNone || !selProps) return;
+  if (!obj) { selNone.style.display = ''; selProps.style.display = 'none'; return; }
+  selNone.style.display = 'none';
+  selProps.style.display = 'flex';
+  renderSelProps(obj);
+  requestRedraw();
+}
+
+function renderSelProps(obj) {
+  const sp = document.getElementById('selProps');
+  const typeNames = { point: 'Point Charge', 'cond-sphere': 'Conductor Sphere', 'cond-plate': 'Conductor Plate', 'ins-sphere': 'Insulator Sphere', 'ins-plate': 'Insulator Plate' };
+  const typeColors = { point: obj.q >= 0 ? '#ff3d57' : '#00e676', 'cond-sphere': '#b388ff', 'cond-plate': '#9575cd', 'ins-sphere': '#ff9800', 'ins-plate': '#ef6c00' };
+  const col = typeColors[obj.type] || '#888';
+  let html = `
+    <div class="info-card">
+      <div class="row"><span class="k">Type</span><span class="v" style="color:${col}">${typeNames[obj.type]}</span></div>
+      <div class="row"><span class="k">Label</span><span class="v">${obj.label}</span></div>
+      <div class="row"><span class="k">Position</span><span class="v">${Math.round(obj.x)}, ${Math.round(obj.y)}</span></div>
+    </div>
+    <div class="slider-group">
+      <div class="slider-row"><span>${obj.type === 'ins-plate' ? 'σ (nC/m²)' : 'Charge Q (nC)'}</span><span id="sp-q-val">${obj.q}</span></div>
+      <input type="range" min="${obj.type === 'ins-plate' ? -10 : -20}" max="${obj.type === 'ins-plate' ? 10 : 20}" value="${obj.q}" step="0.5"
+        oninput="updateObjQ(${obj.id},+this.value)">
+    </div>`;
+  if (obj.type.includes('sphere')) {
+    html += `<div class="slider-group">
+      <div class="slider-row"><span>Radius (px)</span><span id="sp-r-val">${Math.round(obj.r)}</span></div>
+      <input type="range" min="20" max="140" value="${Math.round(obj.r)}" oninput="updateObjR(${obj.id},+this.value)">
+    </div>`;
+  }
+  if (obj.type.includes('plate')) {
+    html += `<div class="slider-group">
+      <div class="slider-row"><span>Width (px)</span><span id="sp-w-val">${Math.round(obj.w)}</span></div>
+      <input type="range" min="40" max="300" value="${Math.round(obj.w)}" oninput="updateObjW(${obj.id},+this.value)">
+    </div>
+    <div class="slider-group">
+      <div class="slider-row"><span>Height (px)</span><span id="sp-h-val">${Math.round(obj.h)}</span></div>
+      <input type="range" min="8" max="100" value="${Math.round(obj.h)}" oninput="updateObjH(${obj.id},+this.value)">
+    </div>`;
+  }
+  if (obj.type === 'cond-sphere') {
+    html += `<div class="formula">
+      <span class="hl">Conductor rules:</span><br>
+      • E = 0 inside<br>
+      • Charge on surface only<br>
+      • E = kQ/r² outside<br>
+      • <span class="warn">Induced charges shown</span>
+    </div>`;
+  }
+  if (obj.type === 'ins-sphere') {
+    html += `<div class="formula">
+      <span class="hl">Insulator rules:</span><br>
+      • E = kQr/R³ inside (uniform)<br>
+      • E = kQ/r² outside<br>
+      • Charge fixed in lattice
+    </div>`;
+  }
+  html += `<button class="btn red" onclick="deleteObj(${obj.id})">✕ Delete Object</button>`;
+  sp.innerHTML = html;
+}
+
+function updateObjQ(id, q) {
+  const obj = objects.find(o => o.id === id);
+  if (obj) { obj.q = q; document.getElementById('sp-q-val').textContent = q; renderSelProps(obj); requestRedraw(); updateObjList(); }
+}
+function updateObjR(id, r) {
+  const obj = objects.find(o => o.id === id);
+  if (obj) { obj.r = r; document.getElementById('sp-r-val').textContent = Math.round(r); requestRedraw(); updateObjList(); }
+}
+function updateObjW(id, w) {
+  const obj = objects.find(o => o.id === id);
+  if (obj) { obj.w = w; document.getElementById('sp-w-val').textContent = Math.round(w); requestRedraw(); updateObjList(); }
+}
+function updateObjH(id, h) {
+  const obj = objects.find(o => o.id === id);
+  if (obj) { obj.h = h; document.getElementById('sp-h-val').textContent = Math.round(h); requestRedraw(); updateObjList(); }
+}
+function deleteObj(id) {
+  objects = objects.filter(o => o.id !== id);
+  if (selectedId === id) { selectedId = null; document.getElementById('selNone').style.display = ''; document.getElementById('selProps').style.display = 'none'; }
+  requestRedraw();
+}
+
+// ══════════════════════════════════════════════════
+// TOOL SYSTEM
+// ══════════════════════════════════════════════════
+function setTool(t) {
+  tool = t; placeStart = null;
+  document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active','active-pos','active-neg','active-cond','active-ins'));
+  const el = document.getElementById('tool-' + t);
+  if (el) {
+    if (t === 'pos') el.classList.add('active-pos');
+    else if (t === 'neg') el.classList.add('active-neg');
+    else if (t.startsWith('cond')) el.classList.add('active-cond');
+    else if (t.startsWith('ins')) el.classList.add('active-ins');
+    else el.classList.add('active');
+  }
+  const hints = {
+    select: 'Click to select • Drag to move',
+    pos: 'Click to place positive charge',
+    neg: 'Click to place negative charge',
+    'cond-sphere': 'Click center, drag to set radius',
+    'cond-plate': 'Click center, drag to set size',
+    'ins-sphere': 'Click center, drag to set radius',
+    'ins-plate': 'Click center, drag to set size',
+    gauss: 'Drag to draw elliptical Gaussian surface'
+  };
+  document.getElementById('hint').textContent = (hints[t] || '') + ' • Right-click drag = Gauss surface • Scroll = zoom';
+  const cursors = { select: 'default', pos: 'crosshair', neg: 'crosshair', 'cond-sphere': 'crosshair', 'cond-plate': 'crosshair', 'ins-sphere': 'crosshair', 'ins-plate': 'crosshair', gauss: 'cell' };
+  canvas.style.cursor = cursors[t] || 'default';
+}
+
+function switchPanel(p) {
+  panelTab = p;
+  document.querySelectorAll('.ptab').forEach((t, i) => t.classList.toggle('active', ['props','viz','analysis'][i] === p));
+  // Use IDs directly instead of positional index so dynamic insertion can't break it
+  ['sec-props','sec-viz','sec-analysis'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('active', id === 'sec-' + p);
+  });
+}
+
+function clearAll() {
+  objects = []; gaussSurface = null; selectedId = null; placeStart = null;
+  const sn = document.getElementById('selNone');
+  const sp = document.getElementById('selProps');
+  if (sn) sn.style.display = '';
+  if (sp) sp.style.display = 'none';
+  requestRedraw();
+}
+
+// ══════════════════════════════════════════════════
+// HIT TESTING
+// ══════════════════════════════════════════════════
+function hitTest(wx, wy) {
+  for (let i = objects.length - 1; i >= 0; i--) {
+    const obj = objects[i];
+    if (obj.type === 'point') {
+      const r = (10 + Math.abs(obj.q) * 0.7) / viewScale;
+      if ((wx-obj.x)**2 + (wy-obj.y)**2 < r*r) return obj;
+    } else if (obj.type === 'cond-sphere' || obj.type === 'ins-sphere') {
+      if ((wx-obj.x)**2 + (wy-obj.y)**2 < obj.r*obj.r) return obj;
+    } else if (obj.type === 'cond-plate' || obj.type === 'ins-plate') {
+      if (Math.abs(wx-obj.x) < obj.w/2 && Math.abs(wy-obj.y) < obj.h/2) return obj;
+    }
+  }
+  return null;
+}
+
+// ══════════════════════════════════════════════════
+// MOUSE / TOUCH EVENTS
+// ══════════════════════════════════════════════════
+function getEventPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  const t = e.touches ? e.touches[0] : e;
+  return { sx: t.clientX - rect.left, sy: t.clientY - rect.top };
+}
+
+canvas.addEventListener('mousedown', e => {
+  const { sx, sy } = getEventPos(e);
+  mouseX = sx; mouseY = sy;
+  const { wx, wy } = screenToWorld(sx, sy);
+
+  if (e.button === 0 && e.altKey) { // alt+drag to pan
+    isPanning = true; panStartX = sx; panStartY = sy;
+    canvas.style.cursor = 'grabbing';
+    return;
+  }
+
+  if (e.button === 2) { // right click = draw gauss
+    isDrawingGauss = true;
+    gaussDrawStart = { wx, wy };
+    return;
+  }
+
+  // Left click
+  if (tool === 'select') {
+    const obj = hitTest(wx, wy);
+    if (obj) {
+      selectObj(obj.id);
+      isDragging = true; dragObjId = obj.id; dragOffX = wx - obj.x; dragOffY = wy - obj.y;
+      canvas.style.cursor = 'grabbing';
+    } else {
+      selectedId = null;
+      document.getElementById('selNone').style.display = '';
+      document.getElementById('selProps').style.display = 'none';
+      requestRedraw();
+    }
+  } else if (tool === 'pos') {
+    objects.push(createPointCharge(wx, wy, getDefaultQ()));
+    requestRedraw();
+  } else if (tool === 'neg') {
+    objects.push(createPointCharge(wx, wy, -getDefaultQ()));
+    requestRedraw();
+  } else if (tool === 'gauss') {
+    isDrawingGauss = true;
+    gaussDrawStart = { wx, wy };
+  } else if (['cond-sphere','ins-sphere','cond-plate','ins-plate'].includes(tool)) {
+    placeStart = { sx, sy, wx, wy };
+  }
+});
+
+canvas.addEventListener('mousemove', e => {
+  const { sx, sy } = getEventPos(e);
+  mouseX = sx; mouseY = sy;
+  const { wx, wy } = screenToWorld(sx, sy);
+
+  if (isPanning) {
+    viewX += (panStartX - sx) / viewScale;
+    viewY += (panStartY - sy) / viewScale;
+    panStartX = sx; panStartY = sy;
+    requestRedraw(); return;
+  }
+  if (isDrawingGauss && gaussDrawStart) {
+    const dx = Math.abs(wx - gaussDrawStart.wx), dy = Math.abs(wy - gaussDrawStart.wy);
+    gaussSurface = { cx: gaussDrawStart.wx, cy: gaussDrawStart.wy, rx: Math.max(dx, 20), ry: Math.max(dy, 20) };
+    requestRedraw(); return;
+  }
+  if (isDragging && dragObjId !== null) {
+    const obj = objects.find(o => o.id === dragObjId);
+    if (obj) { obj.x = wx - dragOffX; obj.y = wy - dragOffY; requestRedraw(); }
+    return;
+  }
+  if (placeStart && ['cond-sphere','ins-sphere','cond-plate','ins-plate'].includes(tool)) {
+    requestRedraw(); // show preview
+  }
+  // Hover cursor
+  if (tool === 'select') {
+    const obj = hitTest(wx, wy);
+    canvas.style.cursor = obj ? 'grab' : 'default';
+  }
+});
+
+canvas.addEventListener('mouseup', e => {
+  const { sx, sy } = getEventPos(e);
+  const { wx, wy } = screenToWorld(sx, sy);
+
+  if (isPanning) { isPanning = false; canvas.style.cursor = tool === 'select' ? 'default' : 'crosshair'; return; }
+  if (isDrawingGauss) { isDrawingGauss = false; requestRedraw(); return; }
+  if (isDragging) {
+    isDragging = false; dragObjId = null;
+    canvas.style.cursor = tool === 'select' ? 'default' : 'crosshair';
+    requestRedraw(); return;
+  }
+
+  if (placeStart && ['cond-sphere','ins-sphere','cond-plate','ins-plate'].includes(tool)) {
+    const dx = sx - placeStart.sx, dy = sy - placeStart.sy;
+    const r = Math.max(20, Math.hypot(dx, dy)) / viewScale;
+    const { wx: wx0, wy: wy0 } = screenToWorld(placeStart.sx, placeStart.sy);
+    if (tool === 'cond-sphere') objects.push(createCondSphere(wx0, wy0, r, 0));
+    else if (tool === 'ins-sphere') objects.push(createInsSphere(wx0, wy0, r, 5));
+    else if (tool === 'cond-plate') objects.push(createCondPlate(wx0, wy0, Math.max(40, Math.abs(dx)*2/viewScale), Math.max(12, Math.abs(dy)/viewScale), 0));
+    else if (tool === 'ins-plate') objects.push(createInsPlate(wx0, wy0, Math.max(40, Math.abs(dx)*2/viewScale), Math.max(12, Math.abs(dy)/viewScale), 2));
+    placeStart = null;
+    requestRedraw();
+  }
+});
+
+canvas.addEventListener('contextmenu', e => { e.preventDefault(); });
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const { sx, sy } = getEventPos(e);
+  const { wx, wy } = screenToWorld(sx, sy);
+  const factor = e.deltaY < 0 ? 1.12 : 0.9;
+  viewScale = Math.min(Math.max(viewScale * factor, 0.2), 5);
+  // Zoom toward cursor
+  viewX = wx - (sx - canvas.width/2) / viewScale;
+  viewY = wy - (sy - canvas.height/2) / viewScale;
+  requestRedraw();
+}, { passive: false });
+
+// Middle mouse pan
+let midPanStart = null;
+canvas.addEventListener('mousedown', e => {
+  if (e.button === 1) { e.preventDefault(); midPanStart = getEventPos(e); }
+});
+canvas.addEventListener('mousemove', e => {
+  if (midPanStart && e.buttons === 4) {
+    const { sx, sy } = getEventPos(e);
+    viewX -= (sx - midPanStart.sx) / viewScale;
+    viewY -= (sy - midPanStart.sy) / viewScale;
+    midPanStart = { sx, sy };
+    requestRedraw();
+  }
+});
+canvas.addEventListener('mouseup', e => { if (e.button === 1) midPanStart = null; });
+
+// ══════════════════════════════════════════════════
+// PRESET SCENES
+// ══════════════════════════════════════════════════
+function loadPreset(name) {
+  clearAll();
+  const cx = 0, cy = 0;
+  if (name === 'dipole') {
+    objects.push(createPointCharge(cx - 80, cy, 8));
+    objects.push(createPointCharge(cx + 80, cy, -8));
+  } else if (name === 'capacitor') {
+    objects.push(createCondPlate(cx, cy - 60, 200, 12, 10));
+    objects.push(createCondPlate(cx, cy + 60, 200, 12, -10));
+  } else if (name === 'shielding') {
+    objects.push(createCondSphere(cx, cy, 90, 0));
+    objects.push(createPointCharge(cx + 160, cy, 10));
+  } else if (name === 'insulator') {
+    objects.push(createInsSphere(cx, cy, 80, 15));
+    objects.push(createPointCharge(cx + 150, cy, -8));
+  }
+  requestRedraw();
+}
+
+// ══════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════
+// Preset quick buttons in analysis panel
+document.getElementById('sec-analysis').insertAdjacentHTML('beforeend', `
+  <div class="sec-label">Quick Presets</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">
+    <button class="btn" onclick="loadPreset('dipole')">⊕⊖ Dipole</button>
+    <button class="btn" onclick="loadPreset('capacitor')">▬▬ Capacitor</button>
+    <button class="btn" onclick="loadPreset('shielding')">◯⊕ Shielding</button>
+    <button class="btn" onclick="loadPreset('insulator')">◉⊖ Insulator</button>
+  </div>
+`);
+
+setTimeout(() => { const h = document.getElementById('hint'); if(h) h.style.opacity = '0'; }, 6000);
+
+// Load a default dipole to show off
+loadPreset('dipole');
+resize();
+</script>
+</body>
+</html>
